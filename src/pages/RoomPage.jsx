@@ -4,8 +4,9 @@ import { io } from 'socket.io-client';
 import { getMalEmbedUrl } from '../api';
 import { getVideasyMovieUrl, getVideasySeriesUrl } from '../tmdb';
 import Footer from '../components/Footer';
+import { SOCKET_URL } from '../config';
 
-const SOCKET_SERVER_URL = 'http://localhost:4000';
+const SOCKET_SERVER_URL = SOCKET_URL;
 
 export default function RoomPage({ type }) {
   // Extract all possible params from all three routes

@@ -1,4 +1,5 @@
 import { createContext, useState, useEffect, useContext } from 'react';
+import { API_BASE_URL } from '../config';
 
 const AuthContext = createContext();
 
@@ -33,7 +34,7 @@ export const AuthProvider = ({ children }) => {
 
   const fetchLibrary = async (jwtToken) => {
     try {
-      const res = await fetch('http://localhost:4000/api/user/library', {
+      const res = await fetch(`${API_BASE_URL}/api/user/library`, {
         headers: { 'Authorization': `Bearer ${jwtToken}` }
       });
       if (res.ok) {
@@ -95,7 +96,7 @@ export const AuthProvider = ({ children }) => {
     }
 
     try {
-      const res = await fetch('http://localhost:4000/api/user/history', {
+      const res = await fetch(`${API_BASE_URL}/api/user/history`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(item)
@@ -116,7 +117,7 @@ export const AuthProvider = ({ children }) => {
     }
 
     try {
-      const res = await fetch('http://localhost:4000/api/user/watchlist', {
+      const res = await fetch(`${API_BASE_URL}/api/user/watchlist`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(item)

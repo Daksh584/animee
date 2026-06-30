@@ -1,6 +1,7 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { API_BASE_URL } from '../config';
 
 export default function Navbar({ onSearch }) {
   const [query, setQuery] = useState('');
@@ -42,7 +43,7 @@ export default function Navbar({ onSearch }) {
 
     try {
       const endpoint = authTab === 'login' ? '/api/auth/login' : '/api/auth/register';
-      const res = await fetch(`http://localhost:4000${endpoint}`, {
+      const res = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(authForm)
