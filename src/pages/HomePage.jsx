@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchRecentAnime } from '../api';
+import { fetchTopAnime, searchAnime } from '../api';
 import HeroSection from '../components/HeroSection';
 import AnimeGrid from '../components/AnimeGrid';
 import Footer from '../components/Footer';
@@ -20,24 +20,32 @@ export default function HomePage({ searchQuery }) {
       } else {
         setLoading(true);
       }
-      const data = await fetchRecentAnime(pageNum, 20);
+
+      let data;
+      if (searchQuery) {
+        data = await searchAnime(searchQuery, pageNum);
+      } else {
+        data = await fetchTopAnime(pageNum);
+      }
+
       if (append) {
         setAnimeList(prev => [...prev, ...data.data]);
       } else {
         setAnimeList(data.data);
       }
-      setTotalPages(data.pagination.total_pages);
+      setTotalPages(data.pagination.last_visible_page || 1);
     } catch (err) {
       console.error('Failed to load anime:', err);
     } finally {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, []);
+  }, [searchQuery]);
 
   useEffect(() => {
+    setPage(1);
     loadAnime(1);
-  }, [loadAnime]);
+  }, [loadAnime, searchQuery]);
 
   const handleLoadMore = () => {
     const nextPage = page + 1;
@@ -45,13 +53,8 @@ export default function HomePage({ searchQuery }) {
     loadAnime(nextPage, true);
   };
 
-  // Filter by search query
-  const filteredList = searchQuery
-    ? animeList.filter(a =>
-        a.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (a.alternative && a.alternative.toLowerCase().includes(searchQuery.toLowerCase()))
-      )
-    : animeList;
+  // Filter by search query (handled by API now, so just pass the list)
+  const filteredList = animeList;
 
   return (
     <div>
@@ -70,7 +73,7 @@ export default function HomePage({ searchQuery }) {
 
         <AnimeGrid animeList={filteredList} loading={loading} />
 
-        {!loading && !searchQuery && page < totalPages && (
+        {!loading && page < totalPages && (
           <div className="load-more-container">
             <button
               className="btn btn-primary"

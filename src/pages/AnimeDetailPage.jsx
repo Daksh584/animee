@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { fetchSeries, getScoreColor, decodeHtmlEntities } from '../api';
+import { fetchAnimeDetails, fetchAllAnimeEpisodes, getScoreColor, decodeHtmlEntities } from '../api';
 import Footer from '../components/Footer';
 
 export default function AnimeDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [seriesData, setSeriesData] = useState(null);
+  const [anime, setAnime] = useState(null);
+  const [episodes, setEpisodes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [language, setLanguage] = useState('sub');
@@ -17,9 +18,19 @@ export default function AnimeDetailPage() {
   useEffect(() => {
     setLoading(true);
     setError(null);
-    fetchSeries(id)
-      .then(data => {
-        setSeriesData(data);
+    
+    Promise.all([
+      fetchAnimeDetails(id),
+      fetchAllAnimeEpisodes(id)
+    ])
+      .then(([details, eps]) => {
+        setAnime(details);
+        // If Jikan has no episodes, inject a dummy episode 1 so it's playable
+        if (eps.length === 0) {
+          setEpisodes([{ mal_id: 1, title: 'Episode 1' }]);
+        } else {
+          setEpisodes(eps);
+        }
         setLoading(false);
       })
       .catch(err => {
@@ -39,7 +50,7 @@ export default function AnimeDetailPage() {
     );
   }
 
-  if (error || !seriesData) {
+  if (error || !anime) {
     return (
       <div className="detail-page">
         <div className="error-page">
@@ -53,34 +64,36 @@ export default function AnimeDetailPage() {
     );
   }
 
-  const { anime, episodes = [] } = seriesData;
-  const genres = anime.terms_by_type?.genre || [];
-  const studios = anime.terms_by_type?.studios || [];
-  const scoreClass = getScoreColor(anime.score);
-  const description = decodeHtmlEntities(anime.description || '').replace(/\\r\\n/g, '\n').replace(/\r\n/g, '\n');
+  const title = anime.title_english || anime.title;
+  const genres = anime.genres?.map(g => g.name) || [];
+  const studios = anime.studios?.map(s => s.name) || [];
+  const scoreClass = getScoreColor(anime.score || 0);
+  const description = decodeHtmlEntities(anime.synopsis || '').replace(/\\r\\n/g, '\n').replace(/\r\n/g, '\n');
   const truncatedDesc = description.length > 400 && !showFullDesc
     ? description.substring(0, 400) + '...'
     : description;
 
-  const bannerImage = anime.background_image || anime.poster;
+  const poster = anime.images?.jpg?.large_image_url;
+  const bannerImage = anime.trailer?.images?.maximum_image_url || poster;
 
   return (
     <div className="detail-page">
       {/* Banner */}
       <div className="detail-banner">
-        <img src={bannerImage} alt={anime.title} />
+        <img src={bannerImage} alt={title} />
       </div>
 
       <div className="detail-content">
-        {/* Header: Poster + Info */}
-        <div className="detail-header">
-          <div className="detail-poster">
-            <img src={anime.poster} alt={anime.title} />
-          </div>
-          <div className="detail-info">
-            <h1 className="detail-title">{decodeHtmlEntities(anime.title)}</h1>
-            {anime.alternative && anime.alternative !== anime.title && (
-              <p className="detail-alt-title">{decodeHtmlEntities(anime.alternative)}</p>
+        {/* Poster */}
+        <div className="detail-poster">
+          <img src={poster} alt={title} />
+        </div>
+        
+        {/* Info & Episodes */}
+        <div className="detail-info">
+          <h1 className="detail-title">{decodeHtmlEntities(title)}</h1>
+            {anime.title_japanese && anime.title_japanese !== title && (
+              <p className="detail-alt-title">{decodeHtmlEntities(anime.title_japanese)}</p>
             )}
 
             {/* Score */}
@@ -110,22 +123,12 @@ export default function AnimeDetailPage() {
               )}
               {anime.duration && (
                 <span className="detail-meta-item">
-                  <span className="meta-icon">⏱</span> {anime.duration} min
+                  <span className="meta-icon">⏱</span> {anime.duration}
                 </span>
               )}
               {anime.rating && (
                 <span className="detail-meta-item">
                   <span className="meta-icon">🏷</span> {anime.rating}
-                </span>
-              )}
-              {anime.is_sub > 0 && (
-                <span className="detail-meta-item">
-                  <span className="meta-icon">💬</span> {anime.is_sub} Sub
-                </span>
-              )}
-              {anime.is_dub > 0 && (
-                <span className="detail-meta-item">
-                  <span className="meta-icon">🎙</span> {anime.is_dub} Dub
                 </span>
               )}
               {studios.length > 0 && (
@@ -157,91 +160,88 @@ export default function AnimeDetailPage() {
                 </button>
               )}
             </p>
-          </div>
-        </div>
+            
+            {/* Episodes */}
+            {episodes.length > 0 && (
+              <div className="episodes-section" style={{ marginTop: '3rem' }}>
+                <div className="episodes-header">
+                  <h2>📋 Episodes ({episodes.length})</h2>
+                  
+                  <div className="episodes-controls" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                    {episodes.length > EPS_PER_PAGE && (
+                      <select 
+                        className="episode-page-select"
+                        value={currentEpPage}
+                        onChange={(e) => setCurrentEpPage(Number(e.target.value))}
+                        style={{
+                          background: 'rgba(255, 255, 255, 0.1)',
+                          color: 'white',
+                          border: '1px solid rgba(255, 255, 255, 0.2)',
+                          padding: '0.5rem 1rem',
+                          borderRadius: '0.5rem',
+                          outline: 'none',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {Array.from({ length: Math.ceil(episodes.length / EPS_PER_PAGE) }).map((_, idx) => {
+                          const page = idx + 1;
+                          const startEp = (page - 1) * EPS_PER_PAGE + 1;
+                          const endEp = Math.min(page * EPS_PER_PAGE, episodes.length);
+                          return (
+                            <option key={page} value={page} style={{ background: '#1a1a1a' }}>
+                              Episodes {startEp} - {endEp}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    )}
 
-        {/* Episodes */}
-        {episodes.length > 0 && (
-          <div className="episodes-section">
-            <div className="episodes-header">
-              <h2>📋 Episodes ({episodes.length})</h2>
-              
-              <div className="episodes-controls" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                {episodes.length > EPS_PER_PAGE && (
-                  <select 
-                    className="episode-page-select"
-                    value={currentEpPage}
-                    onChange={(e) => setCurrentEpPage(Number(e.target.value))}
-                    style={{
-                      background: 'rgba(255, 255, 255, 0.1)',
-                      color: 'white',
-                      border: '1px solid rgba(255, 255, 255, 0.2)',
-                      padding: '0.5rem 1rem',
-                      borderRadius: '0.5rem',
-                      outline: 'none',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {Array.from({ length: Math.ceil(episodes.length / EPS_PER_PAGE) }).map((_, idx) => {
-                      const page = idx + 1;
-                      const startEp = (page - 1) * EPS_PER_PAGE + 1;
-                      const endEp = Math.min(page * EPS_PER_PAGE, episodes.length);
-                      return (
-                        <option key={page} value={page} style={{ background: '#1a1a1a' }}>
-                          Episodes {startEp} - {endEp}
-                        </option>
-                      );
-                    })}
-                  </select>
-                )}
-
-                <div className="lang-toggle">
-                  <button
-                    className={language === 'sub' ? 'active' : ''}
-                    onClick={() => setLanguage('sub')}
-                  >
-                    SUB
-                  </button>
-                  <button
-                    className={language === 'dub' ? 'active' : ''}
-                    onClick={() => setLanguage('dub')}
-                  >
-                    DUB
-                  </button>
-                </div>
-              </div>
-            </div>
-            <div className="episode-grid">
-              {episodes
-                .slice((currentEpPage - 1) * EPS_PER_PAGE, currentEpPage * EPS_PER_PAGE)
-                .map((ep) => {
-                const embedUrl = ep.embed_url?.[language];
-                const isAvailable = !!embedUrl;
-                return (
-                  <div
-                    key={ep.id}
-                    className={`episode-card ${!isAvailable ? 'disabled' : ''}`}
-                    onClick={() => {
-                      if (isAvailable) {
-                        navigate(`/watch/${id}/${ep.episode_embed_id}?lang=${language}&ep=${ep.number}`);
-                      }
-                    }}
-                    style={{ opacity: isAvailable ? 1 : 0.4, cursor: isAvailable ? 'pointer' : 'not-allowed' }}
-                  >
-                    <div className="episode-number">{ep.number || '?'}</div>
-                    <div className="episode-info">
-                      <div className="episode-title">{decodeHtmlEntities(ep.title) || `Episode ${ep.number}`}</div>
-                      {ep.jp_title && (
-                        <div className="episode-jp-title">{decodeHtmlEntities(ep.jp_title)}</div>
-                      )}
+                    <div className="lang-toggle">
+                      <button
+                        className={language === 'sub' ? 'active' : ''}
+                        onClick={() => setLanguage('sub')}
+                      >
+                        SUB
+                      </button>
+                      <button
+                        className={language === 'dub' ? 'active' : ''}
+                        onClick={() => setLanguage('dub')}
+                      >
+                        DUB
+                      </button>
                     </div>
                   </div>
-                );
-              })}
-            </div>
+                </div>
+                <div className="episode-grid">
+                  {episodes
+                    .slice((currentEpPage - 1) * EPS_PER_PAGE, currentEpPage * EPS_PER_PAGE)
+                    .map((ep) => {
+                    // Determine episode number (some APIs have ep.mal_id as episode number)
+                    // If it's a dummy episode it has mal_id=1. Otherwise, if the episode is valid, we'll use its mal_id as the episode number.
+                    const epNum = ep.mal_id || 1;
+                    return (
+                      <div
+                        key={epNum}
+                        className="episode-card"
+                        onClick={() => navigate(`/watch/${id}/${epNum}?lang=${language}`)}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <div className="episode-number">{epNum}</div>
+                        <div className="episode-info">
+                          <div className="episode-title">{decodeHtmlEntities(ep.title) || `Episode ${epNum}`}</div>
+                          {ep.title_japanese && (
+                            <div className="episode-jp-title">{decodeHtmlEntities(ep.title_japanese)}</div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            
           </div>
-        )}
-      </div>
+        </div>
 
       <Footer />
     </div>

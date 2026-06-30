@@ -54,6 +54,14 @@ export async function searchMulti(query, page = 1) {
   return fetchTmdb('/search/multi', { query, page });
 }
 
+export async function searchMovies(query, page = 1) {
+  return fetchTmdb('/search/movie', { query, page });
+}
+
+export async function searchSeries(query, page = 1) {
+  return fetchTmdb('/search/tv', { query, page });
+}
+
 // ----------------------------------------------------------------------
 // Videasy Player URLs
 // ----------------------------------------------------------------------

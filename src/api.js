@@ -1,25 +1,65 @@
-// In dev, requests to /api/anikoto/* are proxied to https://anikotoapi.site/*
-// via the Vite dev server proxy (see vite.config.js)
-const ANIKOTO_BASE = '/api/anikoto';
+// Jikan API Base URL
+const JIKAN_BASE = 'https://api.jikan.moe/v4';
 
-export async function fetchRecentAnime(page = 1, perPage = 20) {
-  const res = await fetch(`${ANIKOTO_BASE}/recent-anime?page=${page}&per_page=${perPage}`);
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+// Delay helper to respect Jikan's rate limits (3 requests per second)
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+export async function fetchTopAnime(page = 1) {
+  // Jikan's top anime endpoint
+  const res = await fetch(`${JIKAN_BASE}/top/anime?page=${page}&limit=20`);
+  if (!res.ok) throw new Error(`Jikan API error: ${res.status}`);
   const data = await res.json();
-  if (!data.ok) throw new Error('API returned error');
   return data;
 }
 
-export async function fetchSeries(id) {
-  const res = await fetch(`${ANIKOTO_BASE}/series/${id}`);
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+export async function searchAnime(query, page = 1) {
+  const res = await fetch(`${JIKAN_BASE}/anime?q=${encodeURIComponent(query)}&page=${page}&limit=20&sfw=true`);
+  if (!res.ok) throw new Error(`Jikan API error: ${res.status}`);
   const data = await res.json();
-  if (!data.ok) throw new Error('API returned error');
+  return data;
+}
+
+export async function fetchAnimeDetails(id) {
+  const res = await fetch(`${JIKAN_BASE}/anime/${id}/full`);
+  if (!res.ok) throw new Error(`Jikan API error: ${res.status}`);
+  const data = await res.json();
   return data.data;
 }
 
-export function getEmbedUrl(episodeEmbedId, language = 'sub') {
-  return `https://megaplay.buzz/stream/s-2/${episodeEmbedId}/${language}`;
+export async function fetchAnimeEpisodes(id, page = 1) {
+  // Jikan returns episodes in pages of 100
+  const res = await fetch(`${JIKAN_BASE}/anime/${id}/episodes?page=${page}`);
+  if (!res.ok) {
+    if (res.status === 404) return { data: [], pagination: { has_next_page: false } }; // Some anime have no episode list
+    throw new Error(`Jikan API error: ${res.status}`);
+  }
+  const data = await res.json();
+  return data;
+}
+
+// Fetch all episodes sequentially to bypass the 100 per page limit if needed
+export async function fetchAllAnimeEpisodes(id) {
+  let allEpisodes = [];
+  let page = 1;
+  let hasNext = true;
+
+  while (hasNext) {
+    const res = await fetchAnimeEpisodes(id, page);
+    allEpisodes = allEpisodes.concat(res.data || []);
+    hasNext = res.pagination?.has_next_page || false;
+    if (hasNext) {
+      page++;
+      await delay(350); // Respect rate limit
+    }
+  }
+
+  // Jikan sometimes returns episodes backwards, sort them just in case
+  allEpisodes.sort((a, b) => a.mal_id - b.mal_id);
+  return allEpisodes;
+}
+
+export function getMalEmbedUrl(malId, epNum, language = 'sub') {
+  return `https://megaplay.buzz/stream/mal/${malId}/${epNum}/${language}`;
 }
 
 export function getScoreColor(score) {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { fetchTrendingSeries } from '../tmdb';
+import { fetchTrendingSeries, searchSeries } from '../tmdb';
 import HeroSection from '../components/HeroSection';
 import MediaGrid from '../components/MediaGrid';
 import Footer from '../components/Footer';
@@ -16,7 +16,12 @@ export default function SeriesPage({ searchQuery }) {
       if (append) setLoadingMore(true);
       else setLoading(true);
 
-      const data = await fetchTrendingSeries(pageNum);
+      let data;
+      if (searchQuery) {
+        data = await searchSeries(searchQuery, pageNum);
+      } else {
+        data = await fetchTrendingSeries(pageNum);
+      }
       
       if (append) {
         setSeries(prev => [...prev, ...data.results]);
@@ -30,11 +35,12 @@ export default function SeriesPage({ searchQuery }) {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, []);
+  }, [searchQuery]);
 
   useEffect(() => {
+    setPage(1);
     loadSeries(1);
-  }, [loadSeries]);
+  }, [loadSeries, searchQuery]);
 
   const handleLoadMore = () => {
     const nextPage = page + 1;
@@ -42,9 +48,7 @@ export default function SeriesPage({ searchQuery }) {
     loadSeries(nextPage, true);
   };
 
-  const filteredList = searchQuery
-    ? series.filter(s => s.name?.toLowerCase().includes(searchQuery.toLowerCase()))
-    : series;
+  const filteredList = series;
 
   return (
     <div>
@@ -67,7 +71,7 @@ export default function SeriesPage({ searchQuery }) {
 
         <MediaGrid items={filteredList} loading={loading} type="tv" />
 
-        {!loading && !searchQuery && page < totalPages && (
+        {!loading && page < totalPages && (
           <div className="load-more-container">
             <button className="btn btn-primary" onClick={handleLoadMore} disabled={loadingMore}>
               {loadingMore ? 'Loading...' : 'Load More'}

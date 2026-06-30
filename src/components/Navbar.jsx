@@ -16,22 +16,29 @@ export default function Navbar({ onSearch }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (onSearch && query.trim()) {
+    if (onSearch) {
       onSearch(query.trim());
+    }
+  };
+
+  const handleClearSearch = () => {
+    setQuery('');
+    if (onSearch) {
+      onSearch('');
     }
   };
 
   return (
     <nav className={`navbar ${scrolled ? 'scrolled' : ''}`}>
       <div className="nav-content">
-        <Link to="/" className="nav-logo">
+        <Link to="/" className="nav-logo" onClick={handleClearSearch}>
           <div className="logo-icon">A</div>
           <span>Animee</span>
         </Link>
         <div className="nav-links" style={{ display: 'flex', gap: '1.5rem', marginLeft: '2rem', marginRight: 'auto' }}>
-          <Link to="/" className={`nav-link ${location.pathname === '/' ? 'active' : ''}`}>Anime</Link>
-          <Link to="/movies" className={`nav-link ${location.pathname === '/movies' ? 'active' : ''}`}>Movies</Link>
-          <Link to="/series" className={`nav-link ${location.pathname === '/series' ? 'active' : ''}`}>Series</Link>
+          <Link to="/" className={`nav-link ${location.pathname === '/' ? 'active' : ''}`} onClick={handleClearSearch}>Anime</Link>
+          <Link to="/movies" className={`nav-link ${location.pathname === '/movies' ? 'active' : ''}`} onClick={handleClearSearch}>Movies</Link>
+          <Link to="/series" className={`nav-link ${location.pathname === '/series' ? 'active' : ''}`} onClick={handleClearSearch}>Series</Link>
         </div>
         <form className="nav-search" onSubmit={handleSubmit}>
           <span className="search-icon">🔍</span>

@@ -1,16 +1,17 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { fetchSeries, getEmbedUrl, decodeHtmlEntities } from '../api';
+import { fetchAnimeDetails, fetchAllAnimeEpisodes, getMalEmbedUrl, decodeHtmlEntities } from '../api';
 
 export default function WatchPage() {
-  const { id, epId: episodeId } = useParams();
+  const { id, epId: episodeNumber } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [seriesData, setSeriesData] = useState(null);
+  const [anime, setAnime] = useState(null);
+  const [episodes, setEpisodes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [language, setLanguage] = useState(searchParams.get('lang') || 'sub');
-  const currentEpNumber = parseInt(searchParams.get('ep')) || 1;
+  const currentEpNumber = parseInt(episodeNumber) || 1;
 
   const EPS_PER_PAGE = 100;
   const initialPage = Math.ceil(currentEpNumber / EPS_PER_PAGE);
@@ -18,9 +19,17 @@ export default function WatchPage() {
 
   useEffect(() => {
     setLoading(true);
-    fetchSeries(id)
-      .then(data => {
-        setSeriesData(data);
+    Promise.all([
+      fetchAnimeDetails(id),
+      fetchAllAnimeEpisodes(id)
+    ])
+      .then(([details, eps]) => {
+        setAnime(details);
+        if (eps.length === 0) {
+          setEpisodes([{ mal_id: 1, title: 'Episode 1' }]);
+        } else {
+          setEpisodes(eps);
+        }
         setLoading(false);
       })
       .catch(err => {
@@ -29,20 +38,19 @@ export default function WatchPage() {
       });
   }, [id]);
 
-  const episodes = useMemo(() => seriesData?.episodes || [], [seriesData]);
-
   const currentEpisodeIndex = useMemo(() => {
-    return episodes.findIndex(ep => ep.episode_embed_id === episodeId);
-  }, [episodes, episodeId]);
+    return episodes.findIndex(ep => (ep.mal_id || 1) === currentEpNumber);
+  }, [episodes, currentEpNumber]);
 
   const currentEpisode = episodes[currentEpisodeIndex] || null;
   const prevEpisode = currentEpisodeIndex > 0 ? episodes[currentEpisodeIndex - 1] : null;
   const nextEpisode = currentEpisodeIndex < episodes.length - 1 ? episodes[currentEpisodeIndex + 1] : null;
 
-  const embedUrl = getEmbedUrl(episodeId, language);
+  const embedUrl = getMalEmbedUrl(id, currentEpNumber, language);
 
   const navigateToEpisode = (ep) => {
-    navigate(`/watch/${id}/${ep.episode_embed_id}?lang=${language}&ep=${ep.number}`);
+    const epNum = ep.mal_id || 1;
+    navigate(`/watch/${id}/${epNum}?lang=${language}`);
   };
 
   if (loading) {
@@ -68,7 +76,7 @@ export default function WatchPage() {
     );
   }
 
-  const anime = seriesData?.anime;
+  const title = anime?.title_english || anime?.title;
 
   return (
     <div className="watch-page">
@@ -78,9 +86,9 @@ export default function WatchPage() {
           {/* Video player */}
           <div className="video-player-wrapper">
             <iframe
-              key={`${episodeId}-${language}`}
+              key={`${id}-${currentEpNumber}-${language}`}
               src={embedUrl}
-              title={`${anime?.title} Episode ${currentEpNumber}`}
+              title={`${title} Episode ${currentEpNumber}`}
               allowFullScreen
               allow="autoplay; fullscreen; picture-in-picture"
             />
@@ -90,11 +98,11 @@ export default function WatchPage() {
           <div className="watch-info">
             <Link to={`/anime/${id}`} style={{ textDecoration: 'none' }}>
               <h1 className="watch-title" style={{ cursor: 'pointer' }}>
-                {decodeHtmlEntities(anime?.title)}
+                {decodeHtmlEntities(title)}
               </h1>
             </Link>
             <p className="watch-episode-title">
-              Episode {currentEpisode?.number || currentEpNumber}
+              Episode {currentEpNumber}
               {currentEpisode?.title && ` — ${decodeHtmlEntities(currentEpisode.title)}`}
             </p>
 
@@ -132,10 +140,10 @@ export default function WatchPage() {
             </div>
 
             {/* Description */}
-            {anime?.description && (
+            {anime?.synopsis && (
               <div className="watch-description">
-                {decodeHtmlEntities(anime.description).replace(/\\r\\n/g, '\n').replace(/\r\n/g, '\n').substring(0, 500)}
-                {anime.description.length > 500 ? '...' : ''}
+                {decodeHtmlEntities(anime.synopsis).replace(/\\r\\n/g, '\n').replace(/\r\n/g, '\n').substring(0, 500)}
+                {anime.synopsis.length > 500 ? '...' : ''}
               </div>
             )}
           </div>
@@ -196,16 +204,17 @@ export default function WatchPage() {
             {episodes
               .slice((currentEpPage - 1) * EPS_PER_PAGE, currentEpPage * EPS_PER_PAGE)
               .map((ep) => {
-                const isActive = ep.episode_embed_id === episodeId;
+                const epNum = ep.mal_id || 1;
+                const isActive = epNum === currentEpNumber;
                 return (
                   <div
-                    key={ep.id}
+                    key={epNum}
                     className={`watch-ep-item ${isActive ? 'active' : ''}`}
                     onClick={() => navigateToEpisode(ep)}
                   >
-                    <span className="watch-ep-num">{ep.number}</span>
+                    <span className="watch-ep-num">{epNum}</span>
                     <span className="watch-ep-title">
-                      {decodeHtmlEntities(ep.title) || `Episode ${ep.number}`}
+                      {decodeHtmlEntities(ep.title) || `Episode ${epNum}`}
                     </span>
                   </div>
                 );
