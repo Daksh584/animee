@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/anikoto/:path*",
+      "destination": "https://anikotoapi.site/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
