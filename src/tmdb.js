@@ -1,4 +1,4 @@
-const TMDB_BASE = 'https://api.themoviedb.org/3';
+const TMDB_BASE = '/api/tmdb';
 const API_KEY = import.meta.env.VITE_TMDB_API_KEY;
 const VIDEASY_COLOR = '8B5CF6'; // Brand purple
 
