@@ -1,4 +1,4 @@
-const TMDB_BASE = '/api/tmdb';
+const TMDB_BASE = 'https://api.themoviedb.org/3/';
 const API_KEY = import.meta.env.VITE_TMDB_API_KEY;
 const VIDEASY_COLOR = '8B5CF6'; // Brand purple
 
@@ -6,7 +6,7 @@ const VIDEASY_COLOR = '8B5CF6'; // Brand purple
 async function fetchTmdb(endpoint, params = {}) {
   const url = new URL(`${TMDB_BASE}${endpoint}`);
   url.searchParams.append('api_key', API_KEY);
-  
+
   Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
 
   const res = await fetch(url);
