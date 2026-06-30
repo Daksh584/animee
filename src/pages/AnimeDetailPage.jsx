@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { fetchAnimeDetails, fetchAllAnimeEpisodes, getScoreColor, decodeHtmlEntities } from '../api';
+import { useAuth } from '../context/AuthContext';
 import Footer from '../components/Footer';
 
 export default function AnimeDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { toggleWatchlist, isInWatchlist, isEpisodeWatched } = useAuth();
   const [anime, setAnime] = useState(null);
   const [episodes, setEpisodes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -13,6 +15,7 @@ export default function AnimeDetailPage() {
   const [language, setLanguage] = useState('sub');
   const [showFullDesc, setShowFullDesc] = useState(false);
   const [currentEpPage, setCurrentEpPage] = useState(1);
+  const [inWatchlist, setInWatchlist] = useState(false);
   const EPS_PER_PAGE = 100;
 
   useEffect(() => {
@@ -25,6 +28,7 @@ export default function AnimeDetailPage() {
     ])
       .then(([details, eps]) => {
         setAnime(details);
+        setInWatchlist(isInWatchlist(details.mal_id, 'anime'));
         // If Jikan has no episodes, inject a dummy episode 1 so it's playable
         if (eps.length === 0) {
           setEpisodes([{ mal_id: 1, title: 'Episode 1' }]);
@@ -75,6 +79,24 @@ export default function AnimeDetailPage() {
 
   const poster = anime.images?.jpg?.large_image_url;
   const bannerImage = anime.trailer?.images?.maximum_image_url || poster;
+
+  const handleWatchlist = () => {
+    if (!anime) return;
+    toggleWatchlist({
+      id: anime.mal_id,
+      type: 'anime',
+      title,
+      poster,
+      score: anime.score
+    });
+    setInWatchlist(!inWatchlist);
+  };
+
+  const handleHostParty = (e, epNum) => {
+    e.stopPropagation();
+    const roomId = Math.random().toString(36).substring(2, 9);
+    navigate(`/room/${roomId}/${id}/${epNum}?title=${encodeURIComponent(title)}&poster=${encodeURIComponent(poster)}`);
+  };
 
   return (
     <div className="detail-page">
@@ -136,6 +158,15 @@ export default function AnimeDetailPage() {
                   <span className="meta-icon">🏢</span> {studios.join(', ')}
                 </span>
               )}
+            </div>
+
+            <div style={{ margin: '1.5rem 0' }}>
+              <button 
+                className={`btn ${inWatchlist ? 'btn-secondary' : 'btn-primary'}`} 
+                onClick={handleWatchlist}
+              >
+                {inWatchlist ? '✓ In Watchlist' : '+ Add to Watchlist'}
+              </button>
             </div>
 
             {/* Genres */}
@@ -219,30 +250,49 @@ export default function AnimeDetailPage() {
                     // Determine episode number (some APIs have ep.mal_id as episode number)
                     // If it's a dummy episode it has mal_id=1. Otherwise, if the episode is valid, we'll use its mal_id as the episode number.
                     const epNum = ep.mal_id || 1;
+                    const isWatched = isEpisodeWatched(id, 'anime', epNum);
+                    
                     return (
                       <div
                         key={epNum}
                         className="episode-card"
                         onClick={() => navigate(`/watch/${id}/${epNum}?lang=${language}`)}
-                        style={{ cursor: 'pointer' }}
+                        style={{ cursor: 'pointer', position: 'relative', opacity: isWatched ? 0.7 : 1 }}
                       >
-                        <div className="episode-number">{epNum}</div>
+                        <div className="episode-number">
+                          {epNum}
+                          {isWatched && <span style={{ marginLeft: '4px', color: '#10b981' }}>✓</span>}
+                        </div>
                         <div className="episode-info">
                           <div className="episode-title">{decodeHtmlEntities(ep.title) || `Episode ${epNum}`}</div>
                           {ep.title_japanese && (
                             <div className="episode-jp-title">{decodeHtmlEntities(ep.title_japanese)}</div>
                           )}
                         </div>
+                        <button 
+                          style={{ 
+                            position: 'absolute', right: '1rem', 
+                            padding: '0.5rem', borderRadius: '50%', 
+                            background: 'rgba(124, 58, 237, 0.2)', 
+                            color: '#a78bfa', border: '1px solid rgba(124, 58, 237, 0.3)', 
+                            zIndex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            cursor: 'pointer', transition: 'all 0.2s'
+                          }}
+                          title="Host Watch Party"
+                          onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(124, 58, 237, 0.4)' }}
+                          onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(124, 58, 237, 0.2)' }}
+                          onClick={(e) => handleHostParty(e, epNum)}
+                        >
+                          👥
+                        </button>
                       </div>
                     );
                   })}
                 </div>
               </div>
             )}
-            
           </div>
         </div>
-
       <Footer />
     </div>
   );

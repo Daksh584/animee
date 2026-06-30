@@ -1,16 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { fetchSeriesDetails, fetchSeasonDetails, getTmdbImageUrl, getTmdbBackdropUrl, getTmdbScoreColor } from '../tmdb';
+import { useAuth } from '../context/AuthContext';
 import Footer from '../components/Footer';
 
 export default function SeriesDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { toggleWatchlist, isInWatchlist, isEpisodeWatched } = useAuth();
   const [series, setSeries] = useState(null);
   const [selectedSeason, setSelectedSeason] = useState(1);
   const [episodes, setEpisodes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingEpisodes, setLoadingEpisodes] = useState(false);
+  const [inWatchlist, setInWatchlist] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -18,6 +21,7 @@ export default function SeriesDetailPage() {
         setLoading(true);
         const data = await fetchSeriesDetails(id);
         setSeries(data);
+        setInWatchlist(isInWatchlist(data.id, 'tv'));
         
         // Find default season (usually season 1, but sometimes 0 is specials)
         const defaultSeason = data.seasons.find(s => s.season_number > 0)?.season_number || 1;
@@ -70,6 +74,18 @@ export default function SeriesDetailPage() {
   const backdropUrl = getTmdbBackdropUrl(series.backdrop_path);
   const posterUrl = getTmdbImageUrl(series.poster_path);
 
+  const handleWatchlist = () => {
+    if (!series) return;
+    toggleWatchlist({
+      id: series.id,
+      type: 'tv',
+      title: series.name,
+      poster: getTmdbImageUrl(series.poster_path),
+      score: series.vote_average
+    });
+    setInWatchlist(!inWatchlist);
+  };
+
   return (
     <div className="detail-page">
       <div 
@@ -114,6 +130,15 @@ export default function SeriesDetailPage() {
             ))}
           </div>
 
+          <div style={{ margin: '1.5rem 0' }}>
+            <button 
+              className={`btn ${inWatchlist ? 'btn-secondary' : 'btn-primary'}`} 
+              onClick={handleWatchlist}
+            >
+              {inWatchlist ? '✓ In Watchlist' : '+ Add to Watchlist'}
+            </button>
+          </div>
+
           <div className="detail-description">
             <p>{series.overview}</p>
           </div>
@@ -148,11 +173,14 @@ export default function SeriesDetailPage() {
               <div className="loading-spinner" style={{ margin: '2rem auto' }}></div>
             ) : (
               <div className="episodes-grid">
-                {episodes.map(ep => (
+                {episodes.map(ep => {
+                  const isWatched = isEpisodeWatched(id, selectedSeason, ep.episode_number);
+                  return (
                   <div 
                     key={ep.id} 
                     className="episode-card"
                     onClick={() => navigate(`/tv/watch/${id}/${selectedSeason}/${ep.episode_number}`)}
+                    style={{ opacity: isWatched ? 0.7 : 1 }}
                   >
                     <div className="episode-thumbnail">
                       {ep.still_path ? (
@@ -160,17 +188,43 @@ export default function SeriesDetailPage() {
                       ) : (
                         <div style={{ width: '100%', height: '100%', background: '#222', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>No Image</div>
                       )}
-                      <div className="episode-number-badge">EP {ep.episode_number}</div>
+                      <div className="episode-number-badge">
+                        EP {ep.episode_number}
+                        {isWatched && <span style={{ marginLeft: '4px', color: '#10b981' }}>✓</span>}
+                      </div>
                       <div className="play-icon">▶</div>
                     </div>
-                    <div className="episode-info">
-                      <div className="episode-title">{ep.name}</div>
-                      <div className="episode-meta">
-                        {ep.air_date ? ep.air_date.substring(0, 4) : ''} • {ep.runtime || '?'}m
+                    <div className="episode-info" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                      <div>
+                        <div className="episode-title">{ep.name}</div>
+                        <div className="episode-meta">
+                          {ep.air_date ? ep.air_date.substring(0, 4) : ''} • {ep.runtime || '?'}m
+                        </div>
                       </div>
+                      
+                      <button 
+                        style={{ 
+                          padding: '0.5rem', borderRadius: '50%', 
+                          background: 'rgba(124, 58, 237, 0.2)', 
+                          color: '#a78bfa', border: '1px solid rgba(124, 58, 237, 0.3)', 
+                          zIndex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          cursor: 'pointer', transition: 'all 0.2s', marginRight: '1rem'
+                        }}
+                        title="Host Watch Party"
+                        onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(124, 58, 237, 0.4)' }}
+                        onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(124, 58, 237, 0.2)' }}
+                        onClick={(e) => {
+                          e.stopPropagation(); // prevent card click
+                          const roomId = Math.random().toString(36).substring(2, 9);
+                          navigate(`/room/series/${roomId}/${series.id}/${selectedSeason}/${ep.episode_number}?title=${encodeURIComponent(series.name)}&poster=${encodeURIComponent(getTmdbImageUrl(series.poster_path))}`);
+                        }}
+                      >
+                        👥
+                      </button>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

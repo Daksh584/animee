@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { fetchSeriesDetails, fetchSeasonDetails, getVideasySeriesUrl, getTmdbImageUrl } from '../tmdb';
+import { useAuth } from '../context/AuthContext';
 import Footer from '../components/Footer';
 
 export default function SeriesWatchPage() {
@@ -10,6 +11,7 @@ export default function SeriesWatchPage() {
   const [series, setSeries] = useState(null);
   const [episodes, setEpisodes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { addToHistory, isEpisodeWatched } = useAuth();
 
   useEffect(() => {
     const loadData = async () => {
@@ -22,6 +24,8 @@ export default function SeriesWatchPage() {
         // We need season details for the episode list
         const seasonData = await fetchSeasonDetails(id, season);
         setEpisodes(seasonData.episodes || []);
+
+
       } catch (err) {
         console.error(err);
       } finally {
@@ -35,7 +39,20 @@ export default function SeriesWatchPage() {
   // Handle URL changes to scroll to top (like changing episode)
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, [episode]);
+    
+    // Log to history
+    if (series) {
+      addToHistory({
+        id,
+        type: 'tv',
+        title: series.name,
+        poster: getTmdbImageUrl(series.poster_path),
+        score: series.vote_average,
+        url: `/tv/watch/${id}/${season}/${episode}`,
+        episodeNumber: episode
+      });
+    }
+  }, [id, season, episode, series]);
 
   if (loading) {
     return (
@@ -112,11 +129,13 @@ export default function SeriesWatchPage() {
           <div className="episodes-sidebar-list">
             {episodes.map((ep) => {
               const isActive = ep.episode_number === currentEpNum;
+              const isWatched = isEpisodeWatched(id, 'tv', ep.episode_number);
               return (
                 <div 
                   key={ep.id}
                   className={`sidebar-episode ${isActive ? 'active' : ''}`}
                   onClick={() => navigate(`/tv/watch/${id}/${season}/${ep.episode_number}`)}
+                  style={{ opacity: (isWatched && !isActive) ? 0.6 : 1 }}
                 >
                   <div className="sidebar-ep-thumb">
                     {ep.still_path ? (
@@ -124,7 +143,10 @@ export default function SeriesWatchPage() {
                     ) : (
                       <div className="no-thumb">No Image</div>
                     )}
-                    <div className="sidebar-ep-num">{ep.episode_number}</div>
+                    <div className="sidebar-ep-num">
+                      {ep.episode_number}
+                      {(isWatched && !isActive) && <span style={{ marginLeft: '4px', color: '#10b981', fontSize: '0.9rem' }}>✓</span>}
+                    </div>
                     {isActive && <div className="playing-indicator">▶</div>}
                   </div>
                   <div className="sidebar-ep-info">

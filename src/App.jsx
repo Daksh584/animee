@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import HomePage from './pages/HomePage';
 import AnimeDetailPage from './pages/AnimeDetailPage';
@@ -9,6 +9,8 @@ import MovieWatchPage from './pages/MovieWatchPage';
 import SeriesPage from './pages/SeriesPage';
 import SeriesDetailPage from './pages/SeriesDetailPage';
 import SeriesWatchPage from './pages/SeriesWatchPage';
+import LibraryPage from './pages/LibraryPage';
+import RoomPage from './pages/RoomPage';
 
 function App() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -20,10 +22,15 @@ function App() {
   };
 
   return (
-    <Router>
+    <>
       <Navbar onSearch={handleSearch} />
       <Routes>
-        {/* Anime Routes */}
+        {/* Room Routes */}
+        <Route path="/room/:roomId/:animeId/:epId" element={<RoomPage type="anime" />} />
+        <Route path="/room/movie/:roomId/:movieId" element={<RoomPage type="movie" />} />
+        <Route path="/room/series/:roomId/:seriesId/:seasonId/:epId" element={<RoomPage type="series" />} />
+        
+        <Route path="/library" element={<LibraryPage />} />
         <Route path="/" element={<HomePage searchQuery={searchQuery} />} />
         <Route path="/anime/:id" element={<AnimeDetailPage />} />
         <Route path="/watch/:id/:epId" element={<WatchPage />} />
@@ -47,7 +54,7 @@ function App() {
           </div>
         } />
       </Routes>
-    </Router>
+    </>
   );
 }
 

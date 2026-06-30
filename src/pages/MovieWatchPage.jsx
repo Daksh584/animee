@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { fetchMovieDetails, getTmdbImageUrl, getTmdbBackdropUrl, getVideasyMovieUrl, getTmdbScoreColor } from '../tmdb';
+import { useAuth } from '../context/AuthContext';
 import Footer from '../components/Footer';
 
 export default function MovieWatchPage() {
@@ -8,6 +9,8 @@ export default function MovieWatchPage() {
   const navigate = useNavigate();
   const [movie, setMovie] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { addToHistory, toggleWatchlist, isInWatchlist } = useAuth();
+  const [inWatchlist, setInWatchlist] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -15,6 +18,16 @@ export default function MovieWatchPage() {
         setLoading(true);
         const data = await fetchMovieDetails(id);
         setMovie(data);
+        setInWatchlist(isInWatchlist(data.id, 'movie'));
+        
+        addToHistory({
+          id: data.id,
+          type: 'movie',
+          title: data.title,
+          poster: getTmdbImageUrl(data.poster_path),
+          score: data.vote_average,
+          url: `/movie/${data.id}`
+        });
       } catch (err) {
         console.error(err);
       } finally {
@@ -41,9 +54,19 @@ export default function MovieWatchPage() {
   const score = movie.vote_average ? movie.vote_average.toFixed(1) : 'N/A';
   const scoreClass = getTmdbScoreColor(score);
   const year = movie.release_date ? movie.release_date.substring(0, 4) : '';
-  const backdropUrl = getTmdbBackdropUrl(movie.backdrop_path);
-  const posterUrl = getTmdbImageUrl(movie.poster_path);
   const videasyUrl = getVideasyMovieUrl(id);
+
+  const handleWatchlist = () => {
+    if (!movie) return;
+    toggleWatchlist({
+      id: movie.id,
+      type: 'movie',
+      title: movie.title,
+      poster: getTmdbImageUrl(movie.poster_path),
+      score: movie.vote_average
+    });
+    setInWatchlist(!inWatchlist);
+  };
 
   return (
     <div className="watch-page">
@@ -68,6 +91,34 @@ export default function MovieWatchPage() {
             <div className="detail-meta-header" style={{ marginBottom: '1rem' }}>
               <h1 className="detail-title">{movie.title}</h1>
               {year && <span className="detail-year">({year})</span>}
+            </div>
+
+            <div style={{ margin: '1.5rem 0', display: 'flex', gap: '1rem' }}>
+              <button 
+                className={`btn ${inWatchlist ? 'btn-secondary' : 'btn-primary'}`} 
+                onClick={handleWatchlist}
+              >
+                {inWatchlist ? '✓ In Watchlist' : '+ Add to Watchlist'}
+              </button>
+              
+              <button 
+                style={{ 
+                  padding: '0.5rem 1rem', borderRadius: '0.5rem', 
+                  background: 'rgba(124, 58, 237, 0.2)', 
+                  color: '#a78bfa', border: '1px solid rgba(124, 58, 237, 0.3)', 
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+                  cursor: 'pointer', transition: 'all 0.2s', fontWeight: 'bold'
+                }}
+                title="Host Watch Party"
+                onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(124, 58, 237, 0.4)' }}
+                onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(124, 58, 237, 0.2)' }}
+                onClick={() => {
+                  const roomId = Math.random().toString(36).substring(2, 9);
+                  navigate(`/room/movie/${roomId}/${movie.id}?title=${encodeURIComponent(movie.title)}&poster=${encodeURIComponent(getTmdbImageUrl(movie.poster_path))}`);
+                }}
+              >
+                👥 Host Watch Party
+              </button>
             </div>
 
             <div className="detail-stats">

@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchTopAnime, searchAnime } from '../api';
+import { useAuth } from '../context/AuthContext';
 import HeroSection from '../components/HeroSection';
 import AnimeGrid from '../components/AnimeGrid';
+import LibraryCard from '../components/LibraryCard';
 import Footer from '../components/Footer';
 
 export default function HomePage({ searchQuery }) {
@@ -11,6 +13,7 @@ export default function HomePage({ searchQuery }) {
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const { history } = useAuth();
   const navigate = useNavigate();
 
   const loadAnime = useCallback(async (pageNum, append = false) => {
@@ -61,6 +64,24 @@ export default function HomePage({ searchQuery }) {
       <HeroSection />
 
       <div className="content-area" id="trending">
+        {!searchQuery && history.length > 0 && (
+          <div className="continue-watching-section" style={{ marginBottom: '3rem' }}>
+            <div className="section-header">
+              <h2 className="section-title">🕒 Continue Watching</h2>
+            </div>
+            <div className="history-scroller" style={{ 
+              display: 'flex', gap: '1.5rem', overflowX: 'auto', paddingBottom: '1rem',
+              scrollbarWidth: 'none' // Hide scrollbar for Firefox
+            }}>
+              {history.slice(0, 5).map((item, index) => (
+                <div key={`${item.id}-${index}`} style={{ flex: '0 0 220px' }}>
+                  <LibraryCard item={item} isHistory={true} />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="section-header">
           <h2 className="section-title">
             {searchQuery ? (

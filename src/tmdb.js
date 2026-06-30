@@ -16,7 +16,7 @@ async function fetchTmdb(endpoint, params = {}) {
 
 // ----------------------------------------------------------------------
 // Image Helpers
-// ----------------------------------------------------------------------
+// ---------------------------‸-------------------------------------------
 export function getTmdbImageUrl(path, size = 'w500') {
   if (!path) return 'https://via.placeholder.com/500x750?text=No+Poster';
   return `https://image.tmdb.org/t/p/${size}${path}`;

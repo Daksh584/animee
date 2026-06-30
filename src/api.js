@@ -6,14 +6,14 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function fetchTopAnime(page = 1) {
   // Jikan's top anime endpoint
-  const res = await fetch(`${JIKAN_BASE}/top/anime?page=${page}&limit=20`);
+  const res = await fetch(`${JIKAN_BASE}/top/anime?page=${page}&limit=6`);
   if (!res.ok) throw new Error(`Jikan API error: ${res.status}`);
   const data = await res.json();
   return data;
 }
 
 export async function searchAnime(query, page = 1) {
-  const res = await fetch(`${JIKAN_BASE}/anime?q=${encodeURIComponent(query)}&page=${page}&limit=20&sfw=true`);
+  const res = await fetch(`${JIKAN_BASE}/anime?q=${encodeURIComponent(query)}&page=${page}&limit=6&sfw=true`);
   if (!res.ok) throw new Error(`Jikan API error: ${res.status}`);
   const data = await res.json();
   return data;
@@ -56,6 +56,13 @@ export async function fetchAllAnimeEpisodes(id) {
   // Jikan sometimes returns episodes backwards, sort them just in case
   allEpisodes.sort((a, b) => a.mal_id - b.mal_id);
   return allEpisodes;
+}
+
+export async function fetchAnimeForum(id) {
+  const res = await fetch(`${JIKAN_BASE}/anime/${id}/forum`);
+  if (!res.ok) throw new Error(`Jikan API error: ${res.status}`);
+  const data = await res.json();
+  return data.data;
 }
 
 export function getMalEmbedUrl(malId, epNum, language = 'sub') {

@@ -1,11 +1,14 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { fetchAnimeDetails, fetchAllAnimeEpisodes, getMalEmbedUrl, decodeHtmlEntities } from '../api';
+import { useAuth } from '../context/AuthContext';
+import ForumDiscussions from '../components/ForumDiscussions';
 
 export default function WatchPage() {
   const { id, epId: episodeNumber } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { addToHistory, isEpisodeWatched } = useAuth();
   const [anime, setAnime] = useState(null);
   const [episodes, setEpisodes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -31,12 +34,28 @@ export default function WatchPage() {
           setEpisodes(eps);
         }
         setLoading(false);
+        
       })
       .catch(err => {
         setError(err.message);
         setLoading(false);
       });
   }, [id]);
+
+  // Log to history when episode changes
+  useEffect(() => {
+    if (anime) {
+      addToHistory({
+        id,
+        type: 'anime',
+        title: anime.title_english || anime.title,
+        poster: anime.images?.jpg?.large_image_url,
+        score: anime.score,
+        url: `/watch/${id}/${currentEpNumber}?lang=${language}`,
+        episodeNumber: currentEpNumber
+      });
+    }
+  }, [id, currentEpNumber, anime, language]);
 
   const currentEpisodeIndex = useMemo(() => {
     return episodes.findIndex(ep => (ep.mal_id || 1) === currentEpNumber);
@@ -94,7 +113,7 @@ export default function WatchPage() {
             />
           </div>
 
-          {/* Info below player */}
+
           <div className="watch-info">
             <Link to={`/anime/${id}`} style={{ textDecoration: 'none' }}>
               <h1 className="watch-title" style={{ cursor: 'pointer' }}>
@@ -146,6 +165,11 @@ export default function WatchPage() {
                 {anime.synopsis.length > 500 ? '...' : ''}
               </div>
             )}
+          </div>
+
+          {/* Forum Discussions below player */}
+          <div className="watch-forum-wrapper" style={{ marginTop: '2rem' }}>
+            <ForumDiscussions animeId={id} episodeNumber={episodeNumber} />
           </div>
         </div>
 
@@ -206,13 +230,18 @@ export default function WatchPage() {
               .map((ep) => {
                 const epNum = ep.mal_id || 1;
                 const isActive = epNum === currentEpNumber;
+                const isWatched = isEpisodeWatched(id, 'anime', epNum);
                 return (
                   <div
                     key={epNum}
                     className={`watch-ep-item ${isActive ? 'active' : ''}`}
                     onClick={() => navigateToEpisode(ep)}
+                    style={{ opacity: (isWatched && !isActive) ? 0.6 : 1 }}
                   >
-                    <span className="watch-ep-num">{epNum}</span>
+                    <span className="watch-ep-num">
+                      {epNum}
+                      {(isWatched && !isActive) && <span style={{ marginLeft: '4px', color: '#10b981', fontSize: '0.8rem' }}>✓</span>}
+                    </span>
                     <span className="watch-ep-title">
                       {decodeHtmlEntities(ep.title) || `Episode ${epNum}`}
                     </span>
